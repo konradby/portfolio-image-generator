@@ -7,6 +7,17 @@ export interface ScreenRect {
   y: number;
   width: number;
   height: number;
+  /** Margines wewnętrzny (px) — mniejszy obszar na screenshot. */
+  inset?: number;
+  /** Domyślnie cover. */
+  fit?: "cover" | "contain";
+}
+
+/** Prostokąt urządzenia z ramką — zasłania ekrany warstw z tyłu. */
+export interface DeviceOccluder {
+  bounds: ScreenRect;
+  /** Urządzenie na pierwszym planie (nie blokuj własnego ekranu). */
+  exceptRole: ScreenRole;
 }
 
 export interface TemplateConfig {
@@ -14,10 +25,9 @@ export interface TemplateConfig {
   file: string;
   width: number;
   height: number;
-  /** Tylko ekrany obecne w tym szablonie. */
   screens: Partial<Record<ScreenRole, ScreenRect>>;
-  /** Kolejność nakładania (od spodu). */
   layerOrder: ScreenRole[];
+  occluders?: DeviceOccluder[];
 }
 
 export function templateScreenRoles(config: TemplateConfig): ScreenRole[] {
