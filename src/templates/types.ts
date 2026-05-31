@@ -11,6 +11,8 @@ export interface ScreenRect {
   inset?: number;
   /** Domyślnie cover. */
   fit?: "cover" | "contain";
+  /** Domyślnie top. */
+  position?: "top" | "center";
 }
 
 /** Prostokąt urządzenia z ramką — zasłania ekrany warstw z tyłu. */

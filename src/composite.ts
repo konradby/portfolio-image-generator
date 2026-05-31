@@ -27,7 +27,7 @@ async function maskedScreenshotLayer(
   const fitted = await sharp(sourcePath)
     .resize(bbox.width, bbox.height, {
       fit: screen?.fit ?? "cover",
-      position: "top",
+      position: screen?.position ?? "top",
     })
     .ensureAlpha()
     .png()
@@ -87,7 +87,7 @@ export async function compositeMockup(
       width: masks.width,
       height: masks.height,
       channels: 4,
-      background: { r: 255, g: 255, b: 255, alpha: 1 },
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
     },
   })
     .composite(composites)

@@ -25,7 +25,7 @@ export function loadTemplateMasks(
   templatePath: string,
   template: TemplateConfig,
 ): Promise<TemplateMaskSet> {
-  const key = `${template.id}:v12:${templatePath}`;
+  const key = `${template.id}:v13:${templatePath}`;
   let cached = maskCache.get(key);
   if (!cached) {
     cached = buildTemplateMasks(templatePath, template);
@@ -45,14 +45,51 @@ async function buildTemplateMasks(
 
   const { width, height, channels } = info;
   const checker = new Uint8Array(width * height);
+  const isNearWhite = new Uint8Array(width * height);
 
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const i = (y * width + x) * channels;
-      if (isCheckerPixel(data[i], data[i + 1], data[i + 2])) {
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+      if (isCheckerPixel(r, g, b)) {
         checker[y * width + x] = 1;
       }
+      const avg = (r + g + b) / 3;
+      const spread = Math.max(r, g, b) - Math.min(r, g, b);
+      if (avg >= 225 && spread <= 20) {
+        isNearWhite[y * width + x] = 1;
+      }
     }
+  }
+
+  // Usuń tło tylko wtedy, gdy jest połączone z krawędzią obrazu.
+  const background = new Uint8Array(width * height);
+  const stack: number[] = [];
+  const push = (x: number, y: number): void => {
+    if (x < 0 || y < 0 || x >= width || y >= height) return;
+    const idx = y * width + x;
+    if (!isNearWhite[idx] || background[idx]) return;
+    background[idx] = 1;
+    stack.push(idx);
+  };
+  for (let x = 0; x < width; x++) {
+    push(x, 0);
+    push(x, height - 1);
+  }
+  for (let y = 0; y < height; y++) {
+    push(0, y);
+    push(width - 1, y);
+  }
+  while (stack.length > 0) {
+    const idx = stack.pop()!;
+    const x = idx % width;
+    const y = (idx - x) / width;
+    push(x + 1, y);
+    push(x - 1, y);
+    push(x, y + 1);
+    push(x, y - 1);
   }
 
   const roles = templateScreenRoles(template);
@@ -159,8 +196,12 @@ async function buildTemplateMasks(
       overlay[oi] = data[pi];
       overlay[oi + 1] = data[pi + 1];
       overlay[oi + 2] = data[pi + 2];
-      // Dziury tylko w rzeczywiście przypisanych pikselach ekranu.
-      overlay[oi + 3] = claimed[idx] ? 0 : 255;
+      // Ekrany są transparentne (pod spodem wchodzi screenshot), tło białe też.
+      if (claimed[idx] || background[idx]) {
+        overlay[oi + 3] = 0;
+      } else {
+        overlay[oi + 3] = 255;
+      }
     }
   }
   const frameOverlay = await sharp(overlay, {
