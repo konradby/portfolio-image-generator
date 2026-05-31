@@ -13,6 +13,7 @@ const SCREEN_SOURCE: Record<ScreenRole, ViewportPreset> = {
   mobile: "mobile",
 };
 
+/** Nakłada maskę alfa (PNG 1-kanałowy lub z kanałem A) na dopasowany screenshot. */
 async function maskedScreenshotLayer(
   sourcePath: string,
   bbox: { width: number; height: number },
@@ -27,8 +28,14 @@ async function maskedScreenshotLayer(
     .png()
     .toBuffer();
 
+  const maskWithAlpha = await sharp(mask)
+    .resize(bbox.width, bbox.height, { fit: "fill" })
+    .ensureAlpha()
+    .png()
+    .toBuffer();
+
   return sharp(fitted)
-    .composite([{ input: mask, blend: "dest-in" }])
+    .composite([{ input: maskWithAlpha, blend: "dest-in" }])
     .png()
     .toBuffer();
 }
@@ -59,18 +66,11 @@ export async function compositeMockup(
     });
   }
 
-  composites.push({ input: masks.frameOverlay, left: 0, top: 0 });
-
   await mkdir(dirname(outputPath), { recursive: true });
 
-  await sharp({
-    create: {
-      width: masks.width,
-      height: masks.height,
-      channels: 4,
-      background: { r: 255, g: 255, b: 255, alpha: 1 },
-    },
-  })
+  // Szablon jako baza — screeny zastępują szachownicę, ramki zostają z pliku źródłowego.
+  await sharp(templatePath)
+    .ensureAlpha()
     .composite(composites)
     .png()
     .toFile(outputPath);

@@ -36,6 +36,31 @@ function rectCenter(r: { x: number; y: number; width: number; height: number }) 
 }
 
 /** Odrzuca artefakty łączące dwa ekrany w jeden blob. */
+/** Rozszerza maskę szachownicy o kilka px (antyaliasing brzegów ekranu). */
+function dilateMask(
+  mask: Uint8Array,
+  width: number,
+  height: number,
+  radius: number,
+): void {
+  if (radius <= 0) return;
+  const copy = new Uint8Array(mask);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      if (!copy[y * width + x]) continue;
+      for (let dy = -radius; dy <= radius; dy++) {
+        for (let dx = -radius; dx <= radius; dx++) {
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx >= 0 && ny >= 0 && nx < width && ny < height) {
+            mask[ny * width + nx] = 1;
+          }
+        }
+      }
+    }
+  }
+}
+
 function isValidScreenRegion(r: Region): boolean {
   if (r.area < 5000) return false;
   const ratio = r.w / r.h;
@@ -73,7 +98,7 @@ export function loadTemplateMasks(
   templatePath: string,
   template: TemplateConfig,
 ): Promise<TemplateMaskSet> {
-  const key = `${template.id}:v3:${templatePath}`;
+  const key = `${template.id}:v4:${templatePath}`;
   let cached = maskCache.get(key);
   if (!cached) {
     cached = buildTemplateMasks(templatePath, template);
@@ -195,6 +220,10 @@ async function buildTemplateMasks(
         claimed[i] = 1;
       }
     }
+  }
+
+  for (const key of roles) {
+    dilateMask(finalPixels.get(key)!, width, height, 1);
   }
 
   const screens: Partial<Record<ScreenRole, ScreenMaskLayer>> = {};
