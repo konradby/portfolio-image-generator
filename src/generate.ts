@@ -48,7 +48,7 @@ export async function generatePortfolioImage(
       : defaultOutputPath(projectRoot, slug, templateId);
 
   console.log("Składam mockup…");
-  await compositeMockup(template, screenshots, mockupPath, projectRoot);
+  await compositeMockup(template, screenshots, mockupPath);
 
   console.log(`Gotowe: ${mockupPath}`);
 

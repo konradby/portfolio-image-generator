@@ -3,9 +3,9 @@
  * Uruchom: npm run calibrate
  */
 import sharp from "sharp";
-import { resolve } from "node:path";
+import { getTemplate, resolveTemplatePath } from "./templates/index.js";
 
-const TEMPLATE = resolve("template_01.jpg");
+const TEMPLATE = resolveTemplatePath(getTemplate("template_01"));
 
 /** Piksel wygląda jak tło szachownicy (jasny/szary, nie biały i nie czarny bezel). */
 function isCheckerPixel(r: number, g: number, b: number): boolean {

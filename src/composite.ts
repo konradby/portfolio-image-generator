@@ -1,7 +1,8 @@
 import sharp from "sharp";
-import { resolve, dirname, join } from "node:path";
+import { dirname, join } from "node:path";
 import { mkdir } from "node:fs/promises";
 import type { TemplateConfig } from "./templates/types.js";
+import { resolveTemplatePath } from "./templates/index.js";
 import type { CapturedScreenshots } from "./capture-screenshots.js";
 
 type ScreenKey = keyof TemplateConfig["screens"];
@@ -30,9 +31,8 @@ export async function compositeMockup(
   template: TemplateConfig,
   screenshots: CapturedScreenshots,
   outputPath: string,
-  projectRoot: string,
 ): Promise<string> {
-  const templatePath = resolve(projectRoot, template.file);
+  const templatePath = resolveTemplatePath(template);
   const base = sharp(templatePath);
   const meta = await base.metadata();
 

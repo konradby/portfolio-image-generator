@@ -3,7 +3,7 @@
 Skrypt TypeScript, który dla podanego adresu publicznej strony:
 
 1. Robi **3 screenshoty** (Playwright): desktop, tablet, mobile  
-2. Składa je w **mockup** na podstawie szablonu (domyślnie `template_01.jpg`)
+2. Składa je w **mockup** na podstawie szablonu (domyślnie `src/templates/template_01.jpg`)
 
 ## Wymagania
 
@@ -37,7 +37,7 @@ Wynik:
 npm run calibrate
 ```
 
-Wykrywa obszary szachownicy w `template_01.jpg`. Skopiuj współrzędne do `src/templates/<nazwa>.ts` i zarejestruj w `src/templates/index.ts`.
+Wykrywa obszary szachownicy w szablonie. Dodaj `src/templates/<nazwa>.jpg` + `<nazwa>.ts` i zarejestruj w `src/templates/index.ts`.
 
 ## Mapowanie screenów
 
