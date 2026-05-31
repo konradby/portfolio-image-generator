@@ -22,7 +22,7 @@ await yargs(hideBin(process.argv))
         })
         .option("screenshots", {
           alias: "s",
-          describe: "Katalog na screenshoty (desktop/tablet/mobile)",
+          describe: "Katalog na screenshoty per-maska (mask-<key>.png)",
           type: "string",
         }),
     async (argv) => {

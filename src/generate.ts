@@ -1,7 +1,7 @@
 import { resolve } from "node:path";
 import {
   captureScreenshots,
-  screenshotPaths,
+  loadCapturedScreenshots,
   type CapturedScreenshots,
 } from "./capture-screenshots.js";
 import { compositeMockup, defaultOutputPath, slugFromUrl } from "./composite.js";
@@ -36,8 +36,8 @@ export async function generatePortfolioImage(
   const templates = await getAllTemplates();
 
   console.log(`URL: ${url}`);
-  console.log("Screenshoty (desktop / tablet / mobile)…");
-  const screenshots = await captureScreenshots(url, screenshotsDir);
+  console.log("Screenshoty per maska (2x, dedupe po ratio)...");
+  const screenshots = await captureScreenshots(url, screenshotsDir, templates);
 
   const mockupPaths: Record<string, string> = {};
 
@@ -61,14 +61,11 @@ export async function compositeAllTemplates(
   projectRoot = process.cwd(),
 ): Promise<Record<string, string>> {
   const screenshotsDir = resolve(projectRoot, "output", slug, "screenshots");
-  const paths = screenshotPaths(screenshotsDir);
-  const screenshots: CapturedScreenshots = {
-    desktop: paths.desktop,
-    tablet: paths.tablet,
-    mobile: paths.mobile,
-  };
-
   const templates = await getAllTemplates();
+  const screenshots: CapturedScreenshots = await loadCapturedScreenshots(
+    screenshotsDir,
+    templates,
+  );
   const mockupPaths: Record<string, string> = {};
 
   for (const template of templates) {
