@@ -4,19 +4,36 @@ import {
   loadCapturedScreenshots,
   type CapturedScreenshots,
 } from "./capture-screenshots.js";
-import { compositeMockup, defaultOutputPath, slugFromUrl } from "./composite.js";
+import { compositeMockup, portfolioOutputPath, slugFromUrl } from "./composite.js";
 import { getAllTemplates } from "./templates/index.js";
+import type { TemplateConfig } from "./templates/types.js";
 
 export interface GenerateOptions {
   url: string;
   screenshotsDir?: string;
   projectRoot?: string;
+  templateId?: string;
 }
 
 export interface GenerateResult {
   screenshotsDir: string;
   screenshots: CapturedScreenshots;
-  mockupPaths: Record<string, string>;
+  templateId: string;
+  outputPath: string;
+}
+
+function pickTemplate(
+  templates: TemplateConfig[],
+  templateId = "template_02",
+): TemplateConfig {
+  const selected = templates.find((t) => t.id === templateId);
+  if (!selected) {
+    const available = templates.map((t) => t.id).join(", ");
+    throw new Error(
+      `Nie znaleziono szablonu "${templateId}". Dostępne: ${available}`,
+    );
+  }
+  return selected;
 }
 
 export async function generatePortfolioImage(
@@ -34,46 +51,43 @@ export async function generatePortfolioImage(
     resolve(projectRoot, "output", slug, "screenshots");
 
   const templates = await getAllTemplates();
+  const selectedTemplate = pickTemplate(templates, options.templateId);
 
   console.log(`URL: ${url}`);
   console.log("Screenshoty per maska (2x, dedupe po ratio)...");
-  const screenshots = await captureScreenshots(url, screenshotsDir, templates);
+  const screenshots = await captureScreenshots(url, screenshotsDir, [
+    selectedTemplate,
+  ]);
 
-  const mockupPaths: Record<string, string> = {};
+  const outputPath = portfolioOutputPath(projectRoot, slug);
+  console.log(`Składam mockup: ${selectedTemplate.id}`);
+  await compositeMockup(selectedTemplate, screenshots, outputPath);
+  console.log(`  ✓ ${selectedTemplate.id} → ${outputPath}`);
 
-  console.log(
-    `Składam mockupy (${templates.length} szablonów): ${templates.map((t) => t.id).join(", ")}`,
-  );
-
-  for (const template of templates) {
-    const mockupPath = defaultOutputPath(projectRoot, slug, template.id);
-    await compositeMockup(template, screenshots, mockupPath);
-    mockupPaths[template.id] = mockupPath;
-    console.log(`  ✓ ${template.id} → ${mockupPath}`);
-  }
-
-  return { screenshotsDir, screenshots, mockupPaths };
+  return {
+    screenshotsDir,
+    screenshots,
+    templateId: selectedTemplate.id,
+    outputPath,
+  };
 }
 
 /** Tylko składanie mockupów z istniejących screenshotów. */
-export async function compositeAllTemplates(
+export async function compositeSelectedTemplate(
   slug: string,
+  templateId = "template_02",
   projectRoot = process.cwd(),
-): Promise<Record<string, string>> {
+): Promise<string> {
   const screenshotsDir = resolve(projectRoot, "output", slug, "screenshots");
   const templates = await getAllTemplates();
+  const selectedTemplate = pickTemplate(templates, templateId);
   const screenshots: CapturedScreenshots = await loadCapturedScreenshots(
     screenshotsDir,
-    templates,
+    [selectedTemplate],
   );
-  const mockupPaths: Record<string, string> = {};
 
-  for (const template of templates) {
-    const mockupPath = defaultOutputPath(projectRoot, slug, template.id);
-    await compositeMockup(template, screenshots, mockupPath);
-    mockupPaths[template.id] = mockupPath;
-    console.log(`  ✓ ${template.id} → ${mockupPath}`);
-  }
-
-  return mockupPaths;
+  const outputPath = portfolioOutputPath(projectRoot, slug);
+  await compositeMockup(selectedTemplate, screenshots, outputPath);
+  console.log(`  ✓ ${selectedTemplate.id} → ${outputPath}`);
+  return outputPath;
 }

@@ -276,7 +276,36 @@ export async function loadCapturedScreenshots(
     const raw = await readFile(metaPath, "utf-8");
     const meta = JSON.parse(raw) as Partial<CaptureMetaV2>;
     if (meta.version === "mask-v2" && meta.slotToCapture) {
-      const keys = new Set(Object.values(meta.slotToCapture));
+      const requestedSlotIds = templates.flatMap((template) =>
+        template.layerOrder
+          .filter((role) => template.screens[role] != null)
+          .map((role) => slotId(template.id, role)),
+      );
+      const slotToCapture: Record<string, string> = { ...meta.slotToCapture };
+
+      // Jeśli meta nie zawiera slotów aktualnie wybranego szablonu,
+      // spróbuj odtworzyć mapowanie po kluczu requestu dla bieżącej konfiguracji.
+      const missing = requestedSlotIds.filter((id) => !slotToCapture[id]);
+      if (missing.length > 0) {
+        const rebuilt = buildCaptureRequests(templates);
+        for (const id of missing) {
+          const key = rebuilt.slotToCapture[id];
+          if (!key) continue;
+          if (await screenshotExists(capturePath(outputDir, key))) {
+            slotToCapture[id] = key;
+          }
+        }
+      }
+
+      for (const id of requestedSlotIds) {
+        if (!slotToCapture[id]) {
+          throw new Error(
+            `Brak mapowania slotu ${id} w meta.json i brak pasującego mask-<key>.png. Uruchom ponownie generate dla tego szablonu.`,
+          );
+        }
+      }
+
+      const keys = new Set(requestedSlotIds.map((id) => slotToCapture[id]));
       const captures: Record<string, string> = {};
       for (const key of keys) {
         const path = capturePath(outputDir, key);
@@ -285,7 +314,7 @@ export async function loadCapturedScreenshots(
         }
         captures[key] = path;
       }
-      return { captures, slotToCapture: meta.slotToCapture };
+      return { captures, slotToCapture };
     }
   } catch {
     // fallback legacy below

@@ -100,9 +100,12 @@ export async function compositeMockup(
 export function defaultOutputPath(
   projectRoot: string,
   slug: string,
-  templateId: string,
 ): string {
-  return join(projectRoot, "output", slug, `${templateId}.png`);
+  return join(projectRoot, "output", slug, `portfolio_${slug}.png`);
+}
+
+export function portfolioOutputPath(projectRoot: string, slug: string): string {
+  return defaultOutputPath(projectRoot, slug);
 }
 
 export function slugFromUrl(url: string): string {

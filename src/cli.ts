@@ -3,7 +3,7 @@ import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 import {
   generatePortfolioImage,
-  compositeAllTemplates,
+  compositeSelectedTemplate,
 } from "./generate.js";
 import { getAllTemplates } from "./templates/index.js";
 
@@ -12,7 +12,7 @@ await yargs(hideBin(process.argv))
   .usage("$0 <url> [opcje]")
   .command(
     "$0 <url>",
-    "Screeny strony (jeśli brak) + mockup dla każdego szablonu w src/templates",
+    "Screeny strony (jeśli brak) + mockup dla wybranego szablonu",
     (y) =>
       y
         .positional("url", {
@@ -24,27 +24,41 @@ await yargs(hideBin(process.argv))
           alias: "s",
           describe: "Katalog na screenshoty per-maska (mask-<key>.png)",
           type: "string",
+        })
+        .option("template", {
+          alias: "t",
+          describe: "ID szablonu (domyślnie template_02)",
+          type: "string",
+          default: "template_02",
         }),
     async (argv) => {
       await generatePortfolioImage({
         url: argv.url,
         screenshotsDir: argv.screenshots,
+        templateId: argv.template,
       });
     },
   )
   .command(
     "recomposite <slug>",
-    "Złóż mockupy ze istniejących screenshotów (wszystkie szablony)",
+    "Złóż mockup z istniejących screenshotów (jeden szablon)",
     (y) =>
-      y.positional("slug", {
-        describe: "Slug katalogu w output/ (np. y.co)",
-        type: "string",
-        demandOption: true,
-      }),
+      y
+        .positional("slug", {
+          describe: "Slug katalogu w output/ (np. y.co)",
+          type: "string",
+          demandOption: true,
+        })
+        .option("template", {
+          alias: "t",
+          describe: "ID szablonu (domyślnie template_02)",
+          type: "string",
+          default: "template_02",
+        }),
     async (argv) => {
       const templates = await getAllTemplates();
       console.log(`Szablony: ${templates.map((t) => t.id).join(", ")}`);
-      await compositeAllTemplates(argv.slug);
+      await compositeSelectedTemplate(argv.slug, argv.template);
     },
   )
   .command("templates", "Lista dostępnych szablonów", async () => {
