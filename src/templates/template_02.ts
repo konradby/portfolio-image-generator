@@ -7,7 +7,7 @@ export const template02: TemplateConfig = {
   width: 1619,
   height: 972,
   screens: {
-    monitor: { x: 493, y: 177, width: 758, height: 524 },
+    monitor: { x: 493, y: 177, width: 758, height: 428 },
     tablet: { x: 297, y: 344, width: 300, height: 431 },
     mobile: { x: 1217, y: 475, width: 144, height: 314 },
   },
