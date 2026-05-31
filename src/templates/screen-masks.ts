@@ -1,5 +1,5 @@
 import sharp from "sharp";
-import type { TemplateConfig, ScreenRole, DeviceOccluder } from "./types.js";
+import type { TemplateConfig, ScreenRole } from "./types.js";
 import { templateScreenRoles } from "./types.js";
 import { isCheckerPixel } from "./checker.js";
 
@@ -23,20 +23,6 @@ function inRect(
   return x >= r.x && x < r.x + r.width && y >= r.y && y < r.y + r.height;
 }
 
-function blockedByOccluder(
-  x: number,
-  y: number,
-  forRole: ScreenRole,
-  occluders: DeviceOccluder[] | undefined,
-): boolean {
-  if (!occluders?.length) return false;
-  for (const o of occluders) {
-    if (o.exceptRole === forRole) continue;
-    if (inRect(x, y, o.bounds)) return true;
-  }
-  return false;
-}
-
 const maskCache = new Map<string, Promise<TemplateMaskSet>>();
 
 export function clearMaskCache(): void {
@@ -47,7 +33,7 @@ export function loadTemplateMasks(
   templatePath: string,
   template: TemplateConfig,
 ): Promise<TemplateMaskSet> {
-  const key = `${template.id}:v11:${templatePath}`;
+  const key = `${template.id}:v12:${templatePath}`;
   let cached = maskCache.get(key);
   if (!cached) {
     cached = buildTemplateMasks(templatePath, template);
@@ -79,17 +65,16 @@ async function buildTemplateMasks(
 
   const roles = templateScreenRoles(template);
   const claimed = new Uint8Array(width * height);
-  const finalPixels = new Map<ScreenRole, Uint8Array>();
+  const perRolePixels = new Map<ScreenRole, Uint8Array>();
   for (const k of roles) {
-    finalPixels.set(k, new Uint8Array(width * height));
+    perRolePixels.set(k, new Uint8Array(width * height));
   }
 
-  const orderedFrontToBack = [...template.layerOrder].reverse();
-
-  for (const key of orderedFrontToBack) {
+  // 1) Piksele szachownicy przypisz do ekranów tylko wewnątrz ich prostokątów.
+  for (const key of roles) {
     const rect = template.screens[key];
     if (!rect) continue;
-    const pixels = finalPixels.get(key)!;
+    const pixels = perRolePixels.get(key)!;
     const pad = rect.inset ?? 0;
     const x1 = Math.max(0, rect.x + pad);
     const y1 = Math.max(0, rect.y + pad);
@@ -99,14 +84,26 @@ async function buildTemplateMasks(
     for (let y = y1; y < y2; y++) {
       for (let x = x1; x < x2; x++) {
         const idx = y * width + x;
-        if (
-          checker[idx] &&
-          !claimed[idx] &&
-          !blockedByOccluder(x, y, key, template.occluders)
-        ) {
+        if (checker[idx]) {
           pixels[idx] = 1;
-          claimed[idx] = 1;
         }
+      }
+    }
+  }
+
+  // 2) W obszarach wspólnych pierwszeństwo ma urządzenie z przodu.
+  const orderedFrontToBack = [...template.layerOrder].reverse();
+  const finalPixels = new Map<ScreenRole, Uint8Array>();
+  for (const k of roles) {
+    finalPixels.set(k, new Uint8Array(width * height));
+  }
+  for (const key of orderedFrontToBack) {
+    const src = perRolePixels.get(key)!;
+    const dst = finalPixels.get(key)!;
+    for (let i = 0; i < src.length; i++) {
+      if (src[i] && !claimed[i]) {
+        dst[i] = 1;
+        claimed[i] = 1;
       }
     }
   }
