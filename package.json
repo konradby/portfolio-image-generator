@@ -1,0 +1,21 @@
+{
+  "name": "portfolio-image-generator",
+  "version": "1.0.0",
+  "description": "Generuje screeny stron (desktop/tablet/mobile) i składa je w szablon mockupu",
+  "type": "module",
+  "scripts": {
+    "generate": "tsx src/cli.ts",
+    "calibrate": "tsx src/calibrate-template.ts"
+  },
+  "dependencies": {
+    "playwright": "^1.52.0",
+    "sharp": "^0.34.2",
+    "yargs": "^17.7.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.21",
+    "@types/yargs": "^17.0.33",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  }
+}
