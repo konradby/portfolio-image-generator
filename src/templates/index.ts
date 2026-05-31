@@ -3,12 +3,16 @@ import { join, dirname } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import type { TemplateConfig } from "./types.js";
 import { template01 } from "./template_01.js";
+import { template02 } from "./template_02.js";
+import { buildAutoTemplateConfig } from "./auto-config.js";
 
 const templatesDir = dirname(fileURLToPath(import.meta.url));
 const TEMPLATE_MODULE_RE = /^template_[\w-]+\.ts$/;
+const TEMPLATE_IMAGE_RE = /^template_[\w-]+\.(jpg|jpeg|png|webp)$/i;
 
 const registered: Record<string, TemplateConfig> = {
   template_01: template01,
+  template_02: template02,
 };
 
 let cache: TemplateConfig[] | null = null;
@@ -20,7 +24,8 @@ function isTemplateConfig(value: unknown): value is TemplateConfig {
     typeof v.id === "string" &&
     typeof v.file === "string" &&
     v.screens != null &&
-    Array.isArray(v.layerOrder)
+    Array.isArray(v.layerOrder) &&
+    v.layerOrder.length > 0
   );
 }
 
@@ -50,16 +55,19 @@ export async function getAllTemplates(): Promise<TemplateConfig[]> {
     }
   }
 
-  const list = [...byId.values()].sort((a, b) => a.id.localeCompare(b.id));
+  for (const file of readdirSync(templatesDir).filter((f) =>
+    TEMPLATE_IMAGE_RE.test(f),
+  )) {
+    const id = file.replace(/\.[^.]+$/i, "");
+    if (byId.has(id)) continue;
 
-  const templateFiles = readdirSync(templatesDir);
-  for (const config of list) {
-    if (!templateFiles.includes(config.file)) {
-      console.warn(
-        `Szablon "${config.id}": brak obrazu ${config.file} w src/templates/`,
-      );
-    }
+    const imagePath = join(templatesDir, file);
+    console.log(`Szablon "${id}" — wykrywam ekrany z ${file}…`);
+    const config = await buildAutoTemplateConfig(imagePath);
+    byId.set(config.id, config);
   }
+
+  const list = [...byId.values()].sort((a, b) => a.id.localeCompare(b.id));
 
   if (list.length === 0) {
     throw new Error("Brak szablonów w src/templates/");
@@ -85,4 +93,8 @@ export function resolveTemplatePath(template: TemplateConfig): string {
 
 export function listTemplates(): string[] {
   return (cache ?? Object.values(registered)).map((t) => t.id);
+}
+
+export function clearTemplateCache(): void {
+  cache = null;
 }

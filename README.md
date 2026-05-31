@@ -38,10 +38,13 @@ npm run recomposite -- y.co
 
 ## Nowy szablon
 
-1. Dodaj `src/templates/template_02.jpg` + `template_02.ts` (export konfiguracji z polem `id`)
-2. Uruchom `npm run generate` — powstanie też `output/.../template_02.png`
+1. Dodaj `src/templates/template_XX.png` (lub `.jpg`)
+2. Opcjonalnie `template_XX.ts` z współrzędnymi — bez pliku `.ts` konfiguracja zostanie wykryta automatycznie
+3. `npm run generate` — powstanie `output/.../template_XX.png`
 
-Kalibracja współrzędnych: `npm run calibrate`
+Kalibracja: `npm run calibrate:any -- src/templates/template_02.png`
+
+**template_02** — 3 urządzenia (monitor, tablet, telefon), bez laptopa.
 
 ## Mapowanie screenów
 

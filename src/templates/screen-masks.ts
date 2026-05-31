@@ -1,8 +1,7 @@
 import sharp from "sharp";
-import type { TemplateConfig } from "./types.js";
+import type { TemplateConfig, ScreenRole } from "./types.js";
+import { templateScreenRoles } from "./types.js";
 import { isCheckerPixel } from "./checker.js";
-
-type ScreenKey = keyof TemplateConfig["screens"];
 
 export interface ScreenMaskLayer {
   bbox: { x: number; y: number; width: number; height: number };
@@ -13,8 +12,7 @@ export interface ScreenMaskLayer {
 export interface TemplateMaskSet {
   width: number;
   height: number;
-  screens: Record<ScreenKey, ScreenMaskLayer>;
-  /** Ramki urządzeń z przezroczystymi ekranami (RGBA). */
+  screens: Partial<Record<ScreenRole, ScreenMaskLayer>>;
   frameOverlay: Buffer;
 }
 
@@ -48,11 +46,14 @@ function isValidScreenRegion(r: Region): boolean {
 function assignRegionToScreen(
   region: Region,
   screens: TemplateConfig["screens"],
-): ScreenKey {
-  let best: ScreenKey = "monitor";
+  roles: ScreenRole[],
+): ScreenRole {
+  let best = roles[0]!;
   let bestD = Infinity;
-  for (const key of Object.keys(screens) as ScreenKey[]) {
-    const { cx, cy } = rectCenter(screens[key]);
+  for (const key of roles) {
+    const rect = screens[key];
+    if (!rect) continue;
+    const { cx, cy } = rectCenter(rect);
     const d = dist(region.cx, region.cy, cx, cy);
     if (d < bestD) {
       bestD = d;
@@ -72,7 +73,7 @@ export function loadTemplateMasks(
   templatePath: string,
   template: TemplateConfig,
 ): Promise<TemplateMaskSet> {
-  const key = `${template.id}:v2:${templatePath}`;
+  const key = `${template.id}:v3:${templatePath}`;
   let cached = maskCache.get(key);
   if (!cached) {
     cached = buildTemplateMasks(templatePath, template);
@@ -154,15 +155,18 @@ async function buildTemplateMasks(
     }
   }
 
+  const roles = templateScreenRoles(template);
   const validRegions = regions.filter(isValidScreenRegion);
-  const labelToScreen = new Map<number, ScreenKey>();
+  const labelToScreen = new Map<number, ScreenRole>();
   for (const region of validRegions) {
-    labelToScreen.set(region.id, assignRegionToScreen(region, template.screens));
+    labelToScreen.set(
+      region.id,
+      assignRegionToScreen(region, template.screens, roles),
+    );
   }
 
-  const screenKeys = Object.keys(template.screens) as ScreenKey[];
-  const screenPixels = new Map<ScreenKey, Uint8Array>();
-  for (const k of screenKeys) {
+  const screenPixels = new Map<ScreenRole, Uint8Array>();
+  for (const k of roles) {
     screenPixels.set(k, new Uint8Array(width * height));
   }
 
@@ -177,8 +181,8 @@ async function buildTemplateMasks(
   // Nakładające się bboxy: front w layerOrder przejmuje piksel szachownicy
   const claimed = new Uint8Array(width * height);
   const orderedFrontToBack = [...template.layerOrder].reverse();
-  const finalPixels = new Map<ScreenKey, Uint8Array>();
-  for (const k of screenKeys) {
+  const finalPixels = new Map<ScreenRole, Uint8Array>();
+  for (const k of roles) {
     finalPixels.set(k, new Uint8Array(width * height));
   }
 
@@ -193,9 +197,9 @@ async function buildTemplateMasks(
     }
   }
 
-  const screens: Partial<Record<ScreenKey, ScreenMaskLayer>> = {};
+  const screens: Partial<Record<ScreenRole, ScreenMaskLayer>> = {};
 
-  for (const key of template.layerOrder) {
+  for (const key of roles) {
     const pixels = finalPixels.get(key)!;
     let minX = width,
       minY = height,
@@ -215,7 +219,7 @@ async function buildTemplateMasks(
     }
 
     if (!hasPixel) {
-      const fallback = template.screens[key];
+      const fallback = template.screens[key]!;
       screens[key] = {
         bbox: { ...fallback },
         mask: await sharp({
@@ -284,7 +288,7 @@ async function buildTemplateMasks(
   return {
     width,
     height,
-    screens: screens as Record<ScreenKey, ScreenMaskLayer>,
+    screens,
     frameOverlay,
   };
 }

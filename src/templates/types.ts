@@ -1,5 +1,7 @@
 export type ViewportPreset = "desktop" | "tablet" | "mobile";
 
+export type ScreenRole = "monitor" | "laptop" | "tablet" | "mobile";
+
 export interface ScreenRect {
   x: number;
   y: number;
@@ -10,17 +12,14 @@ export interface ScreenRect {
 export interface TemplateConfig {
   id: string;
   file: string;
-  /** Rozmiar źródłowego pliku szablonu (px). */
   width: number;
   height: number;
-  screens: {
-    /** Główny monitor (środek) – desktop */
-    monitor: ScreenRect;
-    /** Laptop po lewej – ten sam screenshot co desktop */
-    laptop: ScreenRect;
-    tablet: ScreenRect;
-    mobile: ScreenRect;
-  };
-  /** Kolejność nakładania warstw (od spodu). */
-  layerOrder: Array<"monitor" | "laptop" | "tablet" | "mobile">;
+  /** Tylko ekrany obecne w tym szablonie. */
+  screens: Partial<Record<ScreenRole, ScreenRect>>;
+  /** Kolejność nakładania (od spodu). */
+  layerOrder: ScreenRole[];
+}
+
+export function templateScreenRoles(config: TemplateConfig): ScreenRole[] {
+  return config.layerOrder.filter((role) => config.screens[role] != null);
 }

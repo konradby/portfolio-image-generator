@@ -1,14 +1,12 @@
 import sharp from "sharp";
 import { dirname, join } from "node:path";
 import { mkdir } from "node:fs/promises";
-import type { TemplateConfig } from "./templates/types.js";
+import type { TemplateConfig, ScreenRole, ViewportPreset } from "./templates/types.js";
 import { resolveTemplatePath } from "./templates/index.js";
 import { loadTemplateMasks } from "./templates/screen-masks.js";
 import type { CapturedScreenshots } from "./capture-screenshots.js";
 
-type ScreenKey = keyof TemplateConfig["screens"];
-
-const SCREEN_SOURCE: Record<ScreenKey, keyof CapturedScreenshots> = {
+const SCREEN_SOURCE: Record<ScreenRole, ViewportPreset> = {
   monitor: "desktop",
   laptop: "desktop",
   tablet: "tablet",
@@ -47,9 +45,10 @@ export async function compositeMockup(
 
   for (const key of template.layerOrder) {
     const layer = masks.screens[key];
-    const sourcePath = screenshots[SCREEN_SOURCE[key]];
+    if (!layer) continue;
+    const viewport = SCREEN_SOURCE[key];
     const masked = await maskedScreenshotLayer(
-      sourcePath,
+      screenshots[viewport],
       layer.bbox,
       layer.mask,
     );
