@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "generate": "tsx src/cli.ts",
+    "recomposite": "tsx src/recomposite.ts",
     "calibrate": "tsx src/calibrate-template.ts"
   },
   "dependencies": {

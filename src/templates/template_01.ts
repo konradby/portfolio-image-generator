@@ -6,11 +6,6 @@ export const template01: TemplateConfig = {
   file: "template_01.jpg",
   width: 1633,
   height: 980,
-  viewports: {
-    desktop: { width: 1920, height: 1080 },
-    tablet: { width: 768, height: 1024 },
-    mobile: { width: 390, height: 844 },
-  },
   screens: {
     monitor: { x: 588, y: 203, width: 712, height: 403 },
     laptop: { x: 130, y: 435, width: 508, height: 318 },

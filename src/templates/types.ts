@@ -13,7 +13,6 @@ export interface TemplateConfig {
   /** Rozmiar źródłowego pliku szablonu (px). */
   width: number;
   height: number;
-  viewports: Record<ViewportPreset, { width: number; height: number }>;
   screens: {
     /** Główny monitor (środek) – desktop */
     monitor: ScreenRect;

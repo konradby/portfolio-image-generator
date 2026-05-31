@@ -2,8 +2,8 @@
 
 Skrypt TypeScript, który dla podanego adresu publicznej strony:
 
-1. Robi **3 screenshoty** (Playwright): desktop, tablet, mobile  
-2. Składa je w **mockup** na podstawie szablonu (domyślnie `src/templates/template_01.jpg`)
+1. Robi **3 screenshoty** (Playwright): desktop, tablet, mobile — **tylko jeśli jeszcze nie istnieją**
+2. Składa mockupy dla **każdego szablonu** w `src/templates/` (automatycznie)
 
 ## Wymagania
 
@@ -21,23 +21,27 @@ npx playwright install chromium
 npm run generate -- https://example.com
 ```
 
-Opcje:
-
-- `-t, --template` — ID szablonu (domyślnie `template_01`)
-- `-o, --output` — katalog na pośrednie PNG
+Opcja `-s, --screenshots` — własny katalog na screenshoty.
 
 Wynik:
 
 - `output/<domena>/screenshots/` — `desktop.png`, `tablet.png`, `mobile.png`
-- `output/<domena>/template_01.png` — gotowy mockup
+- `output/<domena>/template_01.png` — (i kolejne szablony, gdy dodasz)
 
-## Kalibracja nowego szablonu
+Ponowne uruchomienie dla tej samej strony **nie robi screenshotów od nowa** — tylko przebudowuje mockupy.
+
+Tylko składanie (bez Playwright):
 
 ```bash
-npm run calibrate
+npm run recomposite -- y.co
 ```
 
-Wykrywa obszary szachownicy w szablonie. Dodaj `src/templates/<nazwa>.jpg` + `<nazwa>.ts` i zarejestruj w `src/templates/index.ts`.
+## Nowy szablon
+
+1. Dodaj `src/templates/template_02.jpg` + `template_02.ts` (export konfiguracji z polem `id`)
+2. Uruchom `npm run generate` — powstanie też `output/.../template_02.png`
+
+Kalibracja współrzędnych: `npm run calibrate`
 
 ## Mapowanie screenów
 
@@ -46,3 +50,5 @@ Wykrywa obszary szachownicy w szablonie. Dodaj `src/templates/<nazwa>.jpg` + `<n
 | Desktop    | monitor + laptop        |
 | Tablet     | tablet                  |
 | Mobile     | smartphone              |
+
+Screeny są przycinane maską pikseli; ramki urządzeń są na wierzchu.

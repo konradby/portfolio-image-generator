@@ -3,18 +3,10 @@
  * Uruchom: npm run calibrate
  */
 import sharp from "sharp";
+import { isCheckerPixel } from "./templates/checker.js";
 import { getTemplate, resolveTemplatePath } from "./templates/index.js";
 
 const TEMPLATE = resolveTemplatePath(getTemplate("template_01"));
-
-/** Piksel wygląda jak tło szachownicy (jasny/szary, nie biały i nie czarny bezel). */
-function isCheckerPixel(r: number, g: number, b: number): boolean {
-  const avg = (r + g + b) / 3;
-  if (avg > 248 || avg < 40) return false;
-  const spread = Math.max(r, g, b) - Math.min(r, g, b);
-  if (spread > 25) return false;
-  return avg >= 170 && avg <= 245;
-}
 
 async function main() {
   const { data, info } = await sharp(TEMPLATE)

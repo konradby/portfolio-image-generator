@@ -1,7 +1,8 @@
 import { chromium, type Browser } from "playwright";
-import { mkdir, writeFile } from "node:fs/promises";
+import { access, mkdir, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { TemplateConfig, ViewportPreset } from "./templates/types.js";
+import type { ViewportPreset } from "./templates/types.js";
+import { DEVICE_VIEWPORTS, VIEWPORT_PRESETS } from "./viewports.js";
 
 export interface CapturedScreenshots {
   desktop: string;
@@ -9,12 +10,28 @@ export interface CapturedScreenshots {
   mobile: string;
 }
 
-const PRESETS: ViewportPreset[] = ["desktop", "tablet", "mobile"];
+export function screenshotPaths(outputDir: string): Record<ViewportPreset, string> {
+  return {
+    desktop: join(outputDir, "desktop.png"),
+    tablet: join(outputDir, "tablet.png"),
+    mobile: join(outputDir, "mobile.png"),
+  };
+}
 
 function normalizeUrl(input: string): string {
   const trimmed = input.trim();
   if (/^https?:\/\//i.test(trimmed)) return trimmed;
   return `https://${trimmed}`;
+}
+
+async function screenshotExists(path: string): Promise<boolean> {
+  try {
+    await access(path);
+    const { size } = await stat(path);
+    return size > 0;
+  } catch {
+    return false;
+  }
 }
 
 async function captureOne(
@@ -49,36 +66,53 @@ async function captureOne(
 
 export async function captureScreenshots(
   urlInput: string,
-  template: TemplateConfig,
   outputDir: string,
 ): Promise<CapturedScreenshots> {
   const url = normalizeUrl(urlInput);
   await mkdir(outputDir, { recursive: true });
 
-  const paths: Partial<Record<ViewportPreset, string>> = {};
-  for (const preset of PRESETS) {
-    paths[preset] = join(outputDir, `${preset}.png`);
-  }
+  const paths = screenshotPaths(outputDir);
+  const missing: ViewportPreset[] = [];
 
-  const browser = await chromium.launch({ headless: true });
-
-  try {
-    for (const preset of PRESETS) {
-      const viewport = template.viewports[preset];
-      await captureOne(
-        browser,
-        url,
-        preset,
-        viewport,
-        paths[preset]!,
+  for (const preset of VIEWPORT_PRESETS) {
+    if (await screenshotExists(paths[preset])) {
+      const vp = DEVICE_VIEWPORTS[preset];
+      console.log(
+        `  ⊘ ${preset} — pomijam (istnieje: ${paths[preset]}, ${vp.width}×${vp.height})`,
       );
-      console.log(`  ✓ ${preset} (${viewport.width}×${viewport.height})`);
+    } else {
+      missing.push(preset);
     }
-  } finally {
-    await browser.close();
   }
 
-  const meta = { url, capturedAt: new Date().toISOString(), template: template.id };
+  if (missing.length > 0) {
+    const browser = await chromium.launch({ headless: true });
+    try {
+      for (const preset of missing) {
+        const viewport = DEVICE_VIEWPORTS[preset];
+        await captureOne(browser, url, preset, viewport, paths[preset]);
+        console.log(
+          `  ✓ ${preset} (${viewport.width}×${viewport.height})`,
+        );
+      }
+    } finally {
+      await browser.close();
+    }
+  } else {
+    console.log("  Wszystkie screeny już istnieją — pomijam Playwright.");
+  }
+
+  for (const preset of VIEWPORT_PRESETS) {
+    if (!(await screenshotExists(paths[preset]))) {
+      throw new Error(`Brak screenshotu: ${paths[preset]}`);
+    }
+  }
+
+  const meta = {
+    url,
+    capturedAt: new Date().toISOString(),
+    viewports: DEVICE_VIEWPORTS,
+  };
   await writeFile(
     join(outputDir, "meta.json"),
     JSON.stringify(meta, null, 2),
@@ -86,8 +120,8 @@ export async function captureScreenshots(
   );
 
   return {
-    desktop: paths.desktop!,
-    tablet: paths.tablet!,
-    mobile: paths.mobile!,
+    desktop: paths.desktop,
+    tablet: paths.tablet,
+    mobile: paths.mobile,
   };
 }
