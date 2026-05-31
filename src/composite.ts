@@ -18,6 +18,33 @@ const SCREEN_SOURCE: Record<ScreenRole, ViewportPreset> = {
   mobile: "mobile",
 };
 
+async function debugLog(
+  runId: string,
+  hypothesisId: string,
+  location: string,
+  message: string,
+  data: Record<string, unknown>,
+): Promise<void> {
+  // #region agent log
+  await fetch("http://127.0.0.1:7612/ingest/f681acbf-5618-4bb7-94cc-2d7f8bf8b7a2", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Debug-Session-Id": "b95aee",
+    },
+    body: JSON.stringify({
+      sessionId: "b95aee",
+      runId,
+      hypothesisId,
+      location,
+      message,
+      data,
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+  // #endregion
+}
+
 async function maskedScreenshotLayer(
   sourcePath: string,
   bbox: { width: number; height: number },
@@ -49,6 +76,7 @@ export async function compositeMockup(
   screenshots: CapturedScreenshots,
   outputPath: string,
 ): Promise<string> {
+  const runId = process.env.DEBUG_RUN_ID ?? "run1";
   const templatePath = resolveTemplatePath(template);
   const masks = await loadTemplateMasks(templatePath, template);
 
@@ -57,6 +85,16 @@ export async function compositeMockup(
   for (const key of template.layerOrder) {
     const layer = masks.screens[key];
     if (!layer) continue;
+    // #region agent log
+    await debugLog(runId, "H5", "composite.ts:layer-input", "Compositing layer", {
+      templateId: template.id,
+      role: key,
+      source: SCREEN_SOURCE[key],
+      sourcePath: screenshots[SCREEN_SOURCE[key]],
+      bbox: layer.bbox,
+      screenConfig: template.screens[key] ?? null,
+    });
+    // #endregion
     const masked = await maskedScreenshotLayer(
       screenshots[SCREEN_SOURCE[key]],
       layer.bbox,
@@ -72,11 +110,27 @@ export async function compositeMockup(
 
   await mkdir(dirname(outputPath), { recursive: true });
 
-  await sharp(templatePath)
-    .ensureAlpha()
+  composites.push({ input: masks.frameOverlay, left: 0, top: 0 });
+
+  await sharp({
+    create: {
+      width: masks.width,
+      height: masks.height,
+      channels: 4,
+      background: { r: 255, g: 255, b: 255, alpha: 1 },
+    },
+  })
     .composite(composites)
     .png()
     .toFile(outputPath);
+
+  // #region agent log
+  await debugLog(runId, "H5", "composite.ts:output", "Composite output written", {
+    templateId: template.id,
+    outputPath,
+    layersCount: composites.length,
+  });
+  // #endregion
 
   return outputPath;
 }

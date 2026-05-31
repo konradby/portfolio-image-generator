@@ -15,6 +15,33 @@ export interface TemplateMaskSet {
   frameOverlay: Buffer;
 }
 
+async function debugLog(
+  runId: string,
+  hypothesisId: string,
+  location: string,
+  message: string,
+  data: Record<string, unknown>,
+): Promise<void> {
+  // #region agent log
+  await fetch("http://127.0.0.1:7612/ingest/f681acbf-5618-4bb7-94cc-2d7f8bf8b7a2", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Debug-Session-Id": "b95aee",
+    },
+    body: JSON.stringify({
+      sessionId: "b95aee",
+      runId,
+      hypothesisId,
+      location,
+      message,
+      data,
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+  // #endregion
+}
+
 function inRect(
   x: number,
   y: number,
@@ -46,6 +73,7 @@ async function buildTemplateMasks(
   templatePath: string,
   template: TemplateConfig,
 ): Promise<TemplateMaskSet> {
+  const runId = process.env.DEBUG_RUN_ID ?? "run1";
   const { data, info } = await sharp(templatePath)
     .ensureAlpha()
     .raw()
@@ -62,6 +90,20 @@ async function buildTemplateMasks(
       }
     }
   }
+
+  let checkerCount = 0;
+  for (let i = 0; i < checker.length; i++) {
+    if (checker[i]) checkerCount++;
+  }
+  // #region agent log
+  await debugLog(runId, "H1", "screen-masks.ts:checker-scan", "Checker density", {
+    templateId: template.id,
+    width,
+    height,
+    checkerCount,
+    checkerRatio: checkerCount / checker.length,
+  });
+  // #endregion
 
   const roles = templateScreenRoles(template);
   const claimed = new Uint8Array(width * height);
@@ -89,7 +131,44 @@ async function buildTemplateMasks(
         }
       }
     }
+
+    // #region agent log
+    await debugLog(
+      runId,
+      "H7",
+      "screen-masks.ts:solidify",
+      "Solidify disabled after runtime rejection",
+      { templateId: template.id, role: key },
+    );
+    // #endregion
+
   }
+
+  const candidateOverlap: Partial<Record<ScreenRole, number>> = {};
+  for (const role of roles) {
+    candidateOverlap[role] = 0;
+  }
+  for (let i = 0; i < checker.length; i++) {
+    const owners = roles.filter((role) => perRolePixels.get(role)![i] === 1);
+    if (owners.length > 1) {
+      for (const owner of owners) {
+        candidateOverlap[owner] = (candidateOverlap[owner] ?? 0) + 1;
+      }
+    }
+  }
+  // #region agent log
+  await debugLog(
+    runId,
+    "H2",
+    "screen-masks.ts:candidate-overlap",
+    "Per-role overlap before layer priority",
+    {
+      templateId: template.id,
+      overlapByRole: candidateOverlap,
+      layerOrder: template.layerOrder,
+    },
+  );
+  // #endregion
 
   // 2) W obszarach wspólnych pierwszeństwo ma urządzenie z przodu.
   const orderedFrontToBack = [...template.layerOrder].reverse();
@@ -107,6 +186,28 @@ async function buildTemplateMasks(
       }
     }
   }
+
+  let claimedCount = 0;
+  let claimedOutsideChecker = 0;
+  for (let i = 0; i < claimed.length; i++) {
+    if (claimed[i]) {
+      claimedCount++;
+      if (!checker[i]) claimedOutsideChecker++;
+    }
+  }
+  // #region agent log
+  await debugLog(
+    runId,
+    "H3",
+    "screen-masks.ts:claimed-summary",
+    "Claimed screen pixels summary",
+    {
+      templateId: template.id,
+      claimedCount,
+      claimedOutsideChecker,
+    },
+  );
+  // #endregion
 
   const screens: Partial<Record<ScreenRole, ScreenMaskLayer>> = {};
 
@@ -155,9 +256,43 @@ async function buildTemplateMasks(
       .toBuffer();
 
     screens[key] = { bbox, mask };
+
+    // #region agent log
+    await debugLog(runId, "H4", "screen-masks.ts:role-bbox", "Role mask bbox", {
+      templateId: template.id,
+      role: key,
+      configRect,
+      bbox,
+      usedFallback: !hasPixel,
+    });
+    // #endregion
   }
 
-  const frameOverlay = await sharp(templatePath).ensureAlpha().png().toBuffer();
+  const overlay = Buffer.alloc(width * height * 4);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const idx = y * width + x;
+      const pi = idx * channels;
+      const oi = idx * 4;
+      overlay[oi] = data[pi];
+      overlay[oi + 1] = data[pi + 1];
+      overlay[oi + 2] = data[pi + 2];
+      // Dziury tylko w rzeczywiście przypisanych pikselach ekranu.
+      overlay[oi + 3] = claimed[idx] ? 0 : 255;
+    }
+  }
+  const frameOverlay = await sharp(overlay, {
+    raw: { width, height, channels: 4 },
+  })
+    .png()
+    .toBuffer();
+
+  // #region agent log
+  await debugLog(runId, "H5", "screen-masks.ts:frame-overlay", "Frame overlay built", {
+    templateId: template.id,
+    frameBytes: frameOverlay.length,
+  });
+  // #endregion
 
   return { width, height, screens, frameOverlay };
 }
