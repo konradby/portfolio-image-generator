@@ -1,6 +1,6 @@
 import type { TemplateConfig } from "./types.js";
 
-/** 3 urządzenia: monitor, tablet (lewo), telefon (prawo). Współrzędne: npm run calibrate:any -- src/templates/template_02.png */
+/** 3 urządzenia (1619×972). Współrzędne: npm run calibrate:any */
 export const template02: TemplateConfig = {
   id: "template_02",
   file: "template_02.png",

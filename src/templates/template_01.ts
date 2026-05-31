@@ -1,6 +1,6 @@
 import type { TemplateConfig } from "./types.js";
 
-/** Plik: src/templates/template_01.jpg. Współrzędne z npm run calibrate (1633×980). */
+/** Plik: src/templates/template_01.jpg (1633×980). Współrzędne: npm run calibrate:any */
 export const template01: TemplateConfig = {
   id: "template_01",
   file: "template_01.jpg",

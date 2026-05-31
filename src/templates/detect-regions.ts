@@ -1,29 +1,15 @@
 import sharp from "sharp";
 import { isCheckerPixel } from "./checker.js";
 import type { RawRegion } from "./region-types.js";
+import { isValidScreenRegion } from "./region-classify.js";
 
 export { type RawRegion } from "./region-types.js";
 
-export function isValidScreenRegion(r: RawRegion): boolean {
-  if (r.area < 5000) return false;
-  const ratio = r.w / r.h;
-  return ratio <= 2.8 && ratio >= 0.35;
-}
-
-/** Wykrywa obszary szachownicy; opcjonalnie skaluje obraz w dół dla szybkości. */
+/** Wykrywa obszary szachownicy w pełnej rozdzielczości. */
 export async function detectCheckerRegions(
   templatePath: string,
-  maxWidth = 1800,
-): Promise<{ regions: RawRegion[]; width: number; height: number; scale: number }> {
-  const meta = await sharp(templatePath).metadata();
-  const fullW = meta.width!;
-  const fullH = meta.height!;
-  const scale = fullW > maxWidth ? maxWidth / fullW : 1;
-  const w = Math.round(fullW * scale);
-  const h = Math.round(fullH * scale);
-
+): Promise<{ regions: RawRegion[]; width: number; height: number }> {
   const { data, info } = await sharp(templatePath)
-    .resize(w, h, { fit: "fill" })
     .ensureAlpha()
     .raw()
     .toBuffer({ resolveWithObject: true });
@@ -81,20 +67,11 @@ export async function detectCheckerRegions(
         cx: sumX / area,
         cy: sumY / area,
       };
-      if (isValidScreenRegion(region)) {
-        if (scale !== 1) {
-          region.x = Math.round(region.x / scale);
-          region.y = Math.round(region.y / scale);
-          region.w = Math.round(region.w / scale);
-          region.h = Math.round(region.h / scale);
-          region.cx = region.x + region.w / 2;
-          region.cy = region.y + region.h / 2;
-          region.area = Math.round(region.area / (scale * scale));
-        }
+      if (isValidScreenRegion(region, width)) {
         rawRegions.push(region);
       }
     }
   }
 
-  return { regions: rawRegions, width: fullW, height: fullH, scale };
+  return { regions: rawRegions, width: width!, height: height! };
 }
